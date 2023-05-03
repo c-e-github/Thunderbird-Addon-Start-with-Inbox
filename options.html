@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>Start with Inbox - Settings</title>
+<style type="text/css">
+#parent {position: relative;}
+#myform {position: relative;}
+#overlay {position: relative; z-index:10; width:100%; background:#000; color:lightgray; opacity:.5; display:none; height:100%; top:0;}
+</style>
+</head>
+
+<body lang=EN>
+<script type="text/javascript" src="options.js"></script>
+
+<div style="font-size:16pt; font-weight:bold">Start with Inbox - Settings
+</div>
+
+
+
+<table width="100%" border="1" cellpadding="0" cellspacing="2">
+ <tr>
+  <td width="50%">
+
+<div id="parent">
+   <div style="font-size:12pt; font-weight:normal; margin-bottom:10px; margin-top:10px;" id="myform">
+      Please select the account, for which its inbox shall be displayed after start of Thunderbird.
+      <form name="accauswahl"  id="accauswahl_id">
+         <select name="accselect" id="selectliste" size="20">
+<!--       <option value="0">acountname1</option> -->
+         </select>
+      </form>
+   </div>
+</div>
+</td>
+   <td width="50%" style="vertical-align: top;">
+      <div style="font-size:12pt; font-weight:normal; margin-bottom:10px; margin-top:10px;">
+         Select and put the focus on:<br>
+         <br>
+            <input type="radio" id="nachricht" name="fokus" value="N">
+            <label for="nachricht">the latest message.*</label>
+            <br>
+            <input type="radio" id="ungelesen" name="fokus" value="U">
+            <label for="ungelesen">the first unread message.*</label>
+            <br>
+            <input type="radio" id="ordner" name="fokus" value="F">
+            <label for="ordner">the inbox folder in the folder tree.</label>
+            <br>
+            <br>
+            <p style="font-size:11pt; margin-left:15px; text-indent: -15px;">
+               * If there are many accounts and/or many e-mails, finding the last one or finding the first unread can take some time.
+            <br>
+               (If the inbox contains no messages, the inbox folder in the folder tree will be selected and focused.)<br>
+            </p>
+      </div>
+   </td>
+
+ </tr>
+ <tr>
+   <td colspan="2">
+            <p style="margin-left:25px; text-indent: -25px;">
+            <input type="checkbox" name="unified" id="unified_id">
+            <label for="unified_id">
+            Use top-level inbox when Unified Folders view is activated.
+            </label>
+            </p>
+   </td>
+ </tr>
+</table>
+
+<br>
+<br>
+<br>
+</body>
+</html>

@@ -1,0 +1,59 @@
+{
+  "manifest_version": 2,
+  "name": "Start with Inbox",
+  "description": "Selects the latest message in the Inbox after start of Thunderbird.",
+  "version": "3.0.0",
+  "author": "C-E",
+  "icons": {
+      "16": "inbox.svg",
+      "24": "inbox.svg",
+      "32": "inbox.svg",
+      "48": "inbox.svg",
+      "64": "inbox.svg",
+      "96": "inbox.svg"
+  },
+
+   "applications": {
+      "gecko": {
+         "id": "Startup@pharqcon.com",
+         "strict_min_version": "113.0",
+         "strict_max_version": "116.0"
+      }
+   },
+
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+
+  "experiment_apis": {
+    "myapi": {
+      "schema": "schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "myapi"
+          ]
+        ],
+        "script": "implementation.js"
+      }
+    }
+  },
+
+  "options_ui": {
+    "page": "options.html",
+    "browser_style": false,
+    "open_in_tab": true
+  },
+
+  "permissions": [
+    "storage",
+    "messagesRead",
+    "accountsRead"
+    ]
+
+}
