@@ -1,170 +1,102 @@
-var acc_liste = new Object();
+// Retrieve all accounts (ignore accounts of type "none").
+async function read_accounts() {
+   let accounts = await messenger.accounts.list();
+   return accounts.filter(acc => acc.type != "none");
+}
 
-async function leseordner(startaccount, unifiedinbox, fokus) {  // aufgerufen am ende von function pref_lesen()
-   let accs = await messenger.accounts.list();
-   for (var i = 0; i < accs.length; i++) { // alle accounts durchlaufen und namen aufzeichnen
-      if (accs[i].type != "none") {
-         // console.log(accs[i].name);
-         acc_liste[i] = accs[i].name;
-      }
+// Read add-on preferences from local storage (fall back to default values if
+// none stored).
+async function read_prefs() {
+   return browser.storage.local.get({
+      accountnummer: "0",
+      unified: false,
+      fokus: "F"
+   });
+}
+
+// Finds a message according to the selected mode:
+//  - "first-unread": return the first unread message, fallback to the last message
+//  - "last": return the last message
+// Returns null if no matching message could be found.
+async function findMessage(inboxFolder, mode) {
+   if (!mode || !["first-unread","last"].includes(mode)) {
+      throw new Error("Need to specify mode, either 'last' or 'first-unread'.");
    }
-   // console.log(acc_liste);
-   // console.log("accounts", accs);
-   //console.log("fokus", fokus);
-
-
-   var lastmail = {};
-   var Ugefunden = false;
-   if (fokus == "F") { // fokus soll auf folder gesetzt werden --> lesen der nachrichten nicht erforderlich
-      lastmail.id = -99;
-   } else {
-      let inboxFolders = await messenger.accounts.list().then(accts =>
-         accts.map(acct =>
-            acct.folders.find(folder => folder.type === "inbox")
-         )
-      );
-      // returns an array, length = number of accounts, each element is a MailFolder object representing the inbox of each account.
-      // If only one account, index is 0 / contents can be listed with messenger.messages.list
-      //console.log(inboxFolders.length);
-      //console.log("xxx", inboxFolders[startaccount]);
-      let inboxMessages = await messenger.messages.list(inboxFolders[startaccount]);
-         for (let message of inboxMessages.messages) {
-            if (message.read == false){ // finden der ersten ungelesenen mail
-               lastmail = message; // erste ungelesene mail
-               Ugefunden = true;
-               break;
-            }
+   
+   let lastMessage = null;
+   let inboxMessages = await messenger.messages.list(inboxFolder);
+   while (inboxMessages.messages && inboxMessages.messages.length > 0) { // alle list-pages durchlaufen
+      for (let message of inboxMessages.messages) {
+         if (mode == "first" && message.read == false) { // finden der ersten ungelesenen mail
+            return message; // erste ungelesene mail
          }
+         lastMessage = message;
+      }
+      if (!inboxMessages.id) {
+         break;
+      }
+      inboxMessages = await messenger.messages.continueList(inboxMessages.id);
+   }
+   return lastMessage;
+}
 
-         while (inboxMessages.id) { // alle list-pages durchlaufen
-            inboxMessages = await messenger.messages.continueList(inboxMessages.id);
+// Select the folder or message based on the provided preferences.
+async function selectFolderOrMessage(accountnumber, unifiedinbox, fokus) {
+   const MODE_FOR_FOKUS = {
+      "U": "first-unread",
+      "N": "last",
+      "F": "folder"
+   };
+   let mode = MODE_FOR_FOKUS[fokus];
+   
+   let accounts = await read_accounts();
+   let inboxAccount = accounts[accountnumber]; 
+   let inboxFolder = inboxAccount && inboxAccount.folders
+      ? inboxAccount.folders.find(folder => folder.type === "inbox")
+      : null;
 
-            for (let message of inboxMessages.messages) {
-               if (message.read == false){ // finden der ersten ungelesenen mail
-                  lastmail = message; // erste ungelesene mail
-                  Ugefunden = true;
-                  break;
-               }
-            }
-         }
+   // console.log({ accounts, inboxAccount, inboxFolder, startaccount, unifiedinbox, fokus});
 
-      var letzteNr = inboxMessages.messages.length;
-      // console.log(letzteNr);
-
-      if (letzteNr == "0") { // keine mails in der inbox
-         lastmail.id = -99;
+   let lastMail = inboxFolder && ["first-unread", "last"].includes(mode)
+      ? await findMessage(inboxFolder, mode)
+      : null;
+   
+   let mailTabs = await browser.mailTabs.query();
+   for (let mailTab of mailTabs) {
+      // Unified folders only exist in the UI.
+      if (unifiedinbox && browser.UnifiedFolders.enabled(mailTab.id)) {
+         await browser.UnifiedFolders.selectInbox(mailTab.id, mode);
       } else {
-         if (fokus == "U") { // fokus soll auf erste ungelesene mail gesetzt werden, oben schon identifiziert
-            if (Ugefunden == false) { // keine ungelesene mail vorhanden --> fokus auf letzte mail
-               lastmail = inboxMessages.messages[letzteNr - 1]; // fokus soll auf letzte mail gesetzt werden
-            }
-         } else { // fokus-option muss jetzt "N" sein
-            lastmail = inboxMessages.messages[letzteNr - 1]; // fokus soll auf letzte mail gesetzt werden
+         if (lastMail) {
+            // Select a message.
+            await browser.mailTabs.setSelectedMessages(mailTab.id, [lastMail.id]);
+         } else {
+            // Select a folder.
+            await browser.mailTabs.update(mailTab.id, {displayedFolder: inboxFolder});
          }
       }
-   }
-   //console.log(lastmail.id, startaccount, acc_liste[startaccount], unifiedinbox);
-   browser.myapi.selectmessage(lastmail.id, acc_liste[startaccount], unifiedinbox, fokus); // aufruf von implementation.js
-}
-
-//------ prefs einlesen --------------------------------
-async function pref_lesen() {
-   let default_value = "0";
-   let { accountnummer } = await browser.storage.local.get({ "accountnummer": default_value });
-   var unifiedinbox = false;
-   let uinbox = await browser.storage.local.get("unified"); // liefert object mit eigenschaft "unified"
-   //   console.log(uinbox);
-   unifiedinbox = uinbox.unified;
-   if (typeof unifiedinbox == "undefined") { // z.b. nach erstinstallation, wenn pref "unified" noch nicht existiert
-      unifiedinbox = false;
-    }
-   var fokus = "F";
-   let uf = await browser.storage.local.get("fokus"); // liefert object mit eigenschaft "fokus"
-   //console.log(uf);
-   fokus = uf.fokus;
-   if (typeof fokus == "undefined") { // z.b. nach erstinstallation, wenn pref "fokus" noch nicht existiert
-      fokus = "F";
-    }
-   try {
-      leseordner(accountnummer, unifiedinbox, fokus);
-   } catch (error) {
-      console.log(`Error=${error}`);
+      await browser.tabs.update(mailTab.id, {active: true});
    }
 }
-pref_lesen();
 
-
-// -------------------sendmessage aus options.js verarbeiten -------------------
+//------- sendmessage aus options.js verarbeiten -------------------------------
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
-   async function handle_acc_liste() {
-      return { response: acc_liste };
-   }
-
-   async function handle_startaccount() {
-      let default_value = "0";
-      try {
-         let { accountnummer } = await browser.storage.local.get({ "accountnummer": default_value });
-         //console.log(accountnummer);
-         return { response: accountnummer };
-      } catch (error) {
-         console.log(`Error=${error}`);
-         return { response: default_value };
-      }
-   }
-
-   async function handle_unified() {
-      var unifiedinbox = false;
-      try {
-         let uinbox = await browser.storage.local.get("unified"); // liefert object mit eigenschaft "unified"
-         unifiedinbox = uinbox.unified;
-//         console.log(unifiedinbox);
-         return { response: unifiedinbox };
-      } catch (error) {
-         console.log(`Error=${error}`);
-         unifiedinbox = false;
-         return { response: unifiedinbox };
-      }
-   }
-
-   async function handle_fokus() {
-      var fokus = "F";
-      try {
-         let uf = await browser.storage.local.get("fokus"); // liefert object mit eigenschaft "unified"
-         fokus = uf.fokus;
-         // console.log(fokus);
-         return { response: fokus };
-      } catch (error) {
-         console.log(`Error=${error}`);
-         fokus = "F";
-         return { response: fokus };
-      }
-   }
-
-   async function handle_installation() {
-      let accs = await messenger.accounts.list();
-      for (var i = 0; i < accs.length; i++) { // alle accounts durchlaufen und namen aufzeichnen
-         if (accs[i].type != "none") {
-            // console.log(accs[i].name);
-            acc_liste[i] = accs[i].name;
-         }
-      }
-      return { response: acc_liste };
-   }
-
    switch (request.nachricht) {
-      case "hole acc_liste":
-         return handle_acc_liste();
+      case "hole Konten":
+         return read_accounts();
 
-      case "hole unifiedinbox":
-         return handle_unified();
-
-      case "hole fokus":
-         return handle_fokus();
-
-      case "hole startaccount":
-         return handle_startaccount();
-
-      case "nach installation":
-         return handle_installation();
+      case "hole Einstellungen":
+         return read_prefs();
    }
 });
+
+//------ Einstellungen einlesen und Ordner/Nachricht auswählen------------------
+async function init() {
+   let prefs = await read_prefs();  
+   await selectFolderOrMessage(
+      prefs.accountnummer, 
+      prefs.unified,
+      prefs.fokus
+   );
+}
+init();

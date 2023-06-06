@@ -1,121 +1,61 @@
 window.addEventListener("load", init);
+
+async function updateValues() {
+    let fokus = "F"; // Folder, fallback.
+    if (document.getElementById("nachricht").checked == true) {
+       fokus = "N";
+    }
+    if (document.getElementById("ungelesen").checked == true) {
+        fokus = "U";
+    }
+
+    let liste = document.getElementById("selectliste");
+    // alert(liste.options[liste.selectedIndex].value);
+    await browser.storage.local.set({
+        accountnummer: liste.options[liste.selectedIndex].value,
+        unified: document.getElementById("unified_id").checked,
+        fokus
+    });
+}
+
 async function init() {
-   // ------------------sendmessage to background.js to get acc_liste-------------
-   try {
-       let message = await browser.runtime.sendMessage({
-           nachricht: "hole acc_liste"
-       });
-       // console.log(`Message from the background script:  ${message.response}`);
-       acc_liste = message.response; // acc_liste aus background.js
-   } catch (error) {
-       console.log(`Error: ${error}`);
-   }
-   // ------------------sendmessage to background.js to get startaccount----------
-   try {
-       let message = await browser.runtime.sendMessage({
-           nachricht: "hole startaccount"
-       });
-       // console.log(`Message from the background script:  ${message.response}`);
-       startaccount = message.response; // startaccount aus background.js
-   } catch (error) {
-       console.log(`Error: ${error}`);
-   }
-   // ------------------sendmessage to background.js to get unifiedinbox----------
-   try {
-       let message = await browser.runtime.sendMessage({
-           nachricht: "hole unifiedinbox"
-       });
-       // console.log(`Message from the background script:  ${message.response}`);
-       unifiedinbox = message.response; // unifiedinbox aus background.js
-   } catch (error) {
-       console.log(`Error: ${error}`);
-   }
-   // ------------------sendmessage to background.js to get fokus----------
-   try {
-       let message = await browser.runtime.sendMessage({
-           nachricht: "hole fokus"
-       });
-       // console.log(`Message from the background script:  ${message.response}`);
-       fokus = message.response; // fokus aus background.js
-   } catch (error) {
-       console.log(`Error: ${error}`);
-   }
-//------------------------------------------------------------------------------
-   var prefs = {};
-   var select = document.getElementById("selectliste");
+    let acc_liste = await browser.runtime.sendMessage({
+        nachricht: "hole Konten"
+    });
 
-   if (Object.keys(acc_liste).length == 0){ // unmittelbar nach installation des add-on
-      // ------------------sendmessage to background.js to get acc_liste-------------
-      try {
-          let message = await browser.runtime.sendMessage({
-              nachricht: "nach installation"
-          });
-          // console.log(`Message from the background script:  ${message.response}`);
-          acc_liste = message.response; // acc_liste aus background.js
-      } catch (error) {
-          console.log(`Error: ${error}`);
-      }
-   }
+    let prefs = await browser.runtime.sendMessage({
+        nachricht: "hole Einstellungen"
+    });
+    
+    var select = document.getElementById("selectliste");
+    for (var i = 0; i < Object.keys(acc_liste).length; i++) {
+        option = document.createElement('option');
+        option.setAttribute('value', i);
+        option.text = acc_liste[i].name;
+        //console.log(option.text);
+        select.appendChild(option);
+    }
+    select.selectedIndex = prefs.accountnummer;
 
-   for(var i=0; i<Object.keys(acc_liste).length; i++){
-      option = document.createElement('option');
-      option.setAttribute('value', i);
-      option.text =  acc_liste[i];
-      //console.log(option.text);
-      select.appendChild(option);
-   }
-   select.selectedIndex = startaccount;
-   document.accauswahl.accselect.addEventListener("change", speichern);
+    if (prefs.unified == true) {
+        document.getElementById("unified_id").checked = true;
+    } else {
+        document.getElementById("unified_id").checked = false;
+    }
 
-   function speichern () {
-      liste = document.accauswahl.accselect;
-      // alert(liste.options[liste.selectedIndex].value);
-      prefs["accountnummer"] = liste.options[liste.selectedIndex].value;
-      browser.storage.local.set(prefs);
-      // console.log(prefs);
-   }
+    // N-->fokus auf letze nachricht setzen   U-->fokus auf erste ungelesene nachricht setzen  F-->fokus auf inbox-ordner setzen
+    if (prefs.fokus == "N") {
+        document.getElementById("nachricht").checked = true;
+    } else if (prefs.fokus == "U") {
+        document.getElementById("ungelesen").checked = true;
+    } else {
+        document.getElementById("ordner").checked = true;
+    }
 
-   document.getElementById("unified_id").addEventListener("change", updateValue);
-   document.getElementById("nachricht").addEventListener("change", updateValue);
-   document.getElementById("ungelesen").addEventListener("change", updateValue);
-   document.getElementById("ordner").addEventListener("change", updateValue);
-   if (unifiedinbox == true){
-      document.getElementById("unified_id").checked = true;
-      updateValue();
-   } else {
-      document.getElementById("unified_id").checked = false;
-      updateValue();
-   }
+    document.getElementById("unified_id").addEventListener("change", updateValues);
+    document.getElementById("nachricht").addEventListener("change", updateValues);
+    document.getElementById("ungelesen").addEventListener("change", updateValues);
+    document.getElementById("ordner").addEventListener("change", updateValues);
+    document.getElementById("selectliste").addEventListener("change", updateValues);
 
-// N-->fokus auf letze nachricht setzen   U-->fokus auf erste ungelesene nachricht setzen  F-->fokus auf inbox-ordner setzen
-   if (fokus == "N"){
-      document.getElementById("nachricht").checked = true;
-//      updateValue();
-   } else if (fokus == "U") {
-      document.getElementById("ungelesen").checked = true;
-//      updateValue();
-   } else {
-      document.getElementById("ordner").checked = true;
-  //    updateValue();
-   }
-
-
-   //---------------------------------------------------------------------------
-   function updateValue() {
-      prefs["unified"] = document.getElementById("unified_id").checked;
-      let fok = document.getElementById("nachricht").checked;
-      if (document.getElementById("nachricht").checked == true){
-         prefs["fokus"] = "N";
-      }
-      if (document.getElementById("ungelesen").checked == true){
-         prefs["fokus"] = "U";
-      }
-      if (document.getElementById("ordner").checked == true){
-         prefs["fokus"] = "F";
-      }
-
-      speichern();
-   }
-
-//---------------------------------------------------------------------------------------
 } // klammer zu von init
