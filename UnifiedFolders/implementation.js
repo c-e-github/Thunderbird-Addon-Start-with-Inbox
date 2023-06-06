@@ -54,17 +54,17 @@ var UnifiedFolders = class extends ExtensionCommon.ExtensionAPI {
 
                // If mode is not "folder", we need to select the appropriate message.
                if (mode != "folder") {
-                  let msgHdrKey = null;
+                  let msgIndex = null;
                   // Loop over all displayed messages.
                   for (var m = 0; m < about3Pane.threadTree.view.rowCount; m++) {
                      let msgHdr = about3Pane.threadTree.view.getMsgHdrAt(m);
-                     msgHdrKey = msgHdr.messageKey;
+                     msgIndex = m;
                      if (mode == "first-unread" && msgHdr.isRead == false) {
                         break;
                      }
                   }
-                  if (msgHdrKey) {
-                     about3Pane.threadTree.view.selectMsgByKey(msgHdrKey);
+                  if (msgIndex != null) {
+                     about3Pane.threadTree.selectedIndices = [msgIndex];
                   }
                }
             },
